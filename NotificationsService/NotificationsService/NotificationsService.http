@@ -1,0 +1,10 @@
+@NotificationsService_HostAddress = http://localhost:5038
+
+
+GET {{NotificationsService_HostAddress}}/api/pr
+
+###
+
+GET {{NotificationsService_HostAddress}}/ws/prs
+
+###

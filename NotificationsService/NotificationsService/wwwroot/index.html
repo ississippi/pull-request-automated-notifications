@@ -1,0 +1,83 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PR Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Open Pull Requests</h1>
+    <ul id="prList"></ul>
+
+    <script>
+    const prList = document.getElementById('prList');
+
+    // Fetch initial PRs
+    async function fetchInitialPrs() {
+        const response = await fetch('/api/pr');
+        const prs = await response.json();
+        prs.forEach(addPrToList);
+    }
+
+    // Add PR to list
+    function addPrToList(pr) {
+        const li = document.createElement('li');
+        li.textContent = `#${pr.id}: ${pr.title}`;
+        prList.appendChild(li);
+    }
+
+    // Connect WebSocket
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${protocol}://${window.location.host}/ws/prs`);
+
+        ws.onmessage = (event) => {
+            try {
+                const pr = JSON.parse(event.data);
+                if (pr && pr.id && pr.title) {
+                    addPrToList(pr);
+                } else {
+                    console.warn("Received invalid PR message:", event.data);
+                }
+            } catch (e) {
+                console.error("Failed to parse WebSocket message:", event.data, e);
+            }
+        };
+
+
+        ws.onclose = () => {
+            console.log('WebSocket closed. Reconnecting in 3 seconds...');
+            setTimeout(connectWebSocket, 3000);
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error', err);
+            ws.close();
+        };
+    }
+
+    // Initialize page
+    fetchInitialPrs();
+    connectWebSocket();
+    </script>
+
+</body>
+</html>

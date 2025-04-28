@@ -1,0 +1,55 @@
+# Ignore build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.swp
+*.tmp
+*.log
+*.vs/
+.vscode/
+
+# ASP.NET Core secrets
+**/secrets.json
+*.pfx
+*.p12
+
+# Configuration files
+appsettings.Development.json
+appsettings.Local.json
+
+# Dependency directories
+node_modules/
+wwwroot/lib/
+
+# Docker-related files
+.dockerignore
+Dockerfile
+docker-compose.override.yml
+
+# Logs and crash reports
+*.log
+*.dmp
+*.stacktrace
+
+# IDE-specific files
+.idea/
+*.code-workspace
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Publish outputs
+publish/
+*.PublishProfiles/
+
+# Temporary files
+*.bak
+*.old
+*.orig
+*.rej
