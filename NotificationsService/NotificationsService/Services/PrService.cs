@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -15,7 +16,7 @@ namespace NotificationsService.Services
         {
             // Add some fake PRs
             _prs.TryAdd("1", new PrItem { Id = "1", Title = "Initial PR" });
-
+            Debug.WriteLine("PrService starting...");
             // Start background task to simulate new PRs
             Task.Run(SimulateNewPrs);
         }
@@ -24,20 +25,32 @@ namespace NotificationsService.Services
 
         public async Task HandleWebSocketAsync(WebSocket socket)
         {
-            lock (_lock) _sockets.Add(socket);
-
-            var buffer = new byte[1024 * 4];
-            while (socket.State == WebSocketState.Open)
+            try
             {
-                var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                var buffer = new byte[1024 * 4];
 
-                if (result.MessageType == WebSocketMessageType.Close)
+                while (socket.State == WebSocketState.Open)
                 {
-                    lock (_lock) _sockets.Remove(socket);
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    }
+                    // you can also ignore input messages if you're only pushing
                 }
             }
+            catch (WebSocketException ex)
+            {
+                Console.WriteLine($"WebSocket error: {ex.Message}");
+                // optionally log or ignore
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unexpected error in WebSocket handler: {ex}");
+            }
         }
+
 
         private async Task SimulateNewPrs()
         {

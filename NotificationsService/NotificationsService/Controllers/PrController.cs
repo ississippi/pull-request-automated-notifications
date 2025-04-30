@@ -4,6 +4,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace NotificationsService.Services
 {
     [ApiController]
+    [Route("health")]
+    public class HealthController : ControllerBase
+    {
+        [HttpGet]
+        public IActionResult Get() => Ok("Healthy");
+    }
+
+    [ApiController]
     [Route("api/[controller]")]
     public class PrController : ControllerBase
     {
