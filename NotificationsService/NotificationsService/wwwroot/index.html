@@ -70,7 +70,7 @@ function renderPrList() {
         item.className = 'list-group-item list-group-item-action';
         item.innerHTML = `
             <strong>${pr.title}</strong><br>
-            <small>#${pr.id} opened on ${pr.date || 'Unknown'} by ${pr.author || 'Unknown'}</small>
+            <small>#${pr.id} opened on ${pr.created || 'Unknown'} by ${pr.user || 'Unknown'}</small>
         `;
         item.onclick = () => showDetailView(pr.id);
         list.appendChild(item);
@@ -119,6 +119,7 @@ async function sendFeedback(type) {
             })
         });
         alert(`Thanks for your ${type === 'up' ? 'positive' : 'negative'} feedback!`);
+        console.info('Feedback received:', type);
     } catch (error) {
         console.error('Failed to send feedback', error);
         alert('Failed to send feedback.');
@@ -126,6 +127,7 @@ async function sendFeedback(type) {
 }
 
 async function submitReviewAction() {
+    console.info('Review submitted');
     const selected = document.querySelector('input[name="reviewAction"]:checked');
     if (!selected) {
         alert('Please select an action before submitting.');
@@ -152,6 +154,7 @@ async function submitReviewAction() {
 
 
 function setupWebSocket() {
+    console.info('setupWebSocket() entered.')
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${protocol}://${window.location.host}/ws/prs`);
 
@@ -164,7 +167,9 @@ function setupWebSocket() {
     ws.onerror = (err) => console.error('WebSocket error', err);
 }
 
+console.info('Initial fetch PRs');
 fetchPrs();
+console.info('Setting up WebSocket');
 setupWebSocket();
     </script>
 </body>

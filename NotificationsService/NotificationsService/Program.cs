@@ -47,6 +47,7 @@ app.UseStaticFiles(); // makes anything in /wwwroot automatically available at t
 // WebSocket endpoint
 app.Map("/ws/prs", async context =>
 {
+    Console.WriteLine($"/ws/pr endpoint entered at {DateTime.UtcNow}");
     if (context.WebSockets.IsWebSocketRequest)
     {
         var ws = await context.WebSockets.AcceptWebSocketAsync();
