@@ -16,7 +16,7 @@ namespace NotificationsService.Services
         {
             // Add some fake PRs
             _prs.TryAdd("1", new PrItem { Id = "1", Title = "Initial PR" });
-            Debug.WriteLine("PrService starting...");
+            //Debug.WriteLine("PrService starting...");
             // Start background task to simulate new PRs
             Task.Run(SimulateNewPrs);
         }

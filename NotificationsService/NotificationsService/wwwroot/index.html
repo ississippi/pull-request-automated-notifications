@@ -81,11 +81,11 @@ async function showDetailView(prId) {
     currentPr = prId;
 
     // Fetch PR metadata
-    const detailsResp = await fetch(`/notification/details?id=${prId}`);
+    const detailsResp = await fetch(`/api/pr/details?id=${prId}`);
     const details = await detailsResp.json();
 
     // Fetch PR review text
-    const reviewResp = await fetch(`/notification/review?prNumber=${prId}`);
+    const reviewResp = await fetch(`/api/pr/review?prNumber=${prId}`);
     const review = await reviewResp.text();
 
     document.getElementById('detail-title').textContent = details.title;

@@ -1,0 +1,257 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS Fargate service with ALB, HTTPS/HTTP, and Route 53 for notifications.codeominous.com
+
+Parameters:
+  EcrImageUri:
+    Type: String
+    Default: 238338230919.dkr.ecr.us-east-1.amazonaws.com/notifications-service
+
+  HostedZoneName:
+    Type: String
+    Default: codeominous.com.
+
+  DomainName:
+    Type: String
+    Default: notifications.codeominous.com
+
+Resources:
+
+  ## VPC and Networking ##
+  PrNotificationsVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: pr-notifications-vpc
+
+  PrNotificationsInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref PrNotificationsVPC
+      InternetGatewayId: !Ref PrNotificationsInternetGateway
+
+  PrNotificationsPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PrNotificationsVPC
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: pr-notifications-public-1
+
+  PrNotificationsPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PrNotificationsVPC
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: pr-notifications-public-2
+
+  PrNotificationsRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref PrNotificationsVPC
+
+  PrNotificationsRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGateway
+    Properties:
+      RouteTableId: !Ref PrNotificationsRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref PrNotificationsInternetGateway
+
+  AssociateRouteTable1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrNotificationsPublicSubnet1
+      RouteTableId: !Ref PrNotificationsRouteTable
+
+  AssociateRouteTable2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrNotificationsPublicSubnet2
+      RouteTableId: !Ref PrNotificationsRouteTable
+
+  ## Security Groups ##
+  PrNotificationsALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB security group
+      VpcId: !Ref PrNotificationsVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  PrNotificationsTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ECS task security group
+      VpcId: !Ref PrNotificationsVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          SourceSecurityGroupId: !Ref PrNotificationsALBSecurityGroup
+
+  ## Load Balancer ##
+  PrNotificationsALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: pr-notifications-alb
+      Subnets:
+        - !Ref PrNotificationsPublicSubnet1
+        - !Ref PrNotificationsPublicSubnet2
+      SecurityGroups:
+        - !Ref PrNotificationsALBSecurityGroup
+      Scheme: internet-facing
+      Type: application
+
+  ## Target Group ##
+  PrNotificationsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: pr-notifications-tg
+      Port: 5000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref PrNotificationsVPC
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+
+  ## ACM Certificate ##
+  PrNotificationsCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: Z023924930QMN182XFO64
+
+  ## HTTPS Listener ##
+  PrNotificationsHTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref PrNotificationsTargetGroup
+      LoadBalancerArn: !Ref PrNotificationsALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref PrNotificationsCertificate
+
+  ## HTTP Listener (Redirect to HTTPS) ##
+  PrNotificationsHTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+      LoadBalancerArn: !Ref PrNotificationsALB
+      Port: 80
+      Protocol: HTTP
+
+  ## ECS Cluster ##
+  PrNotificationsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: pr-notifications-cluster
+
+  ## Task Execution Role ##
+  PrNotificationsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ## Task Definition ##
+  PrNotificationsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities: [FARGATE]
+      Cpu: "512"
+      Memory: "1024"
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt PrNotificationsTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: notifications-service
+          Image: !Ref EcrImageUri
+          PortMappings:
+            - ContainerPort: 5000
+          Environment:
+            - Name: ASPNETCORE_URLS
+              Value: http://0.0.0.0:5000
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/notifications-service
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: ecs
+
+  ## ECS Service ##
+  PrNotificationsService:
+    Type: AWS::ECS::Service
+    DependsOn: PrNotificationsHTTPSListener
+    Properties:
+      Cluster: !Ref PrNotificationsCluster
+      LaunchType: FARGATE
+      DesiredCount: 2
+      TaskDefinition: !Ref PrNotificationsTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PrNotificationsPublicSubnet1
+            - !Ref PrNotificationsPublicSubnet2
+          SecurityGroups:
+            - !Ref PrNotificationsTaskSecurityGroup
+      LoadBalancers:
+        - ContainerName: notifications-service
+          ContainerPort: 5000
+          TargetGroupArn: !Ref PrNotificationsTargetGroup
+
+  ## Route 53 Record ##
+  PrNotificationsDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Ref HostedZoneName
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt PrNotificationsALB.DNSName
+        HostedZoneId: !GetAtt PrNotificationsALB.CanonicalHostedZoneID
+
+Outputs:
+  ServiceURL:
+    Description: Application Load Balancer DNS
+    Value: !Sub "https://${DomainName}"

@@ -1,4 +1,5 @@
 ﻿using NotificationsService.Services;
+using Microsoft.Extensions.Logging;
 
 
 //var builder = WebApplication.CreateBuilder();
@@ -9,10 +10,12 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ApplicationName = typeof(Program).Assembly.FullName,
     ContentRootPath = AppContext.BaseDirectory
 });
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(5000); // 👈 Listen on 0.0.0.0:5000
+    serverOptions.Listen(System.Net.IPAddress.Any, 5000); // explicitly IPv4
 });
 
 
@@ -56,4 +59,17 @@ app.Map("/ws/prs", async context =>
     }
 });
 
+app.MapGet("/health", (ILogger<Program> logger) =>
+{
+    //logger.LogInformation("Health check received at {Time}", DateTime.UtcNow);
+    return Results.Ok("Healthy");
+});
+
+foreach (var address in System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()))
+{
+    Console.WriteLine($"Bound to IP: {address}");
+}
+
 app.Run();
+
+

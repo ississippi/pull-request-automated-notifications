@@ -1,0 +1,15 @@
+[
+    {
+      "ParameterKey": "EcrImageUri",
+      "ParameterValue": "238338230919.dkr.ecr.us-east-1.amazonaws.com/notifications-service"
+    },
+    {
+      "ParameterKey": "HostedZoneName",
+      "ParameterValue": "codeominous.com."
+    },
+    {
+      "ParameterKey": "DomainName",
+      "ParameterValue": "notifications.codeominous.com"
+    }
+  ]
+  
