@@ -24,7 +24,8 @@ namespace NotificationsService.Controllers
         {
             using var reader = new StreamReader(Request.Body);
             var body = await reader.ReadToEndAsync();
-            _logger.LogInformation("SNS message received: {0}", body);
+            //_logger.LogInformation("Receive: SNS message received: {0}", body);
+            _logger.LogInformation("Receive: SNS message received.");
 
             try
             {
@@ -34,7 +35,7 @@ namespace NotificationsService.Controllers
                 if (messageType == "SubscriptionConfirmation")
                 {
                     var subscribeUrl = json["SubscribeURL"];
-                    _logger.LogInformation("Confirming SNS subscription: {0}", subscribeUrl);
+                    _logger.LogInformation("Receive: Confirming SNS subscription: {0}", subscribeUrl);
                     using var client = new HttpClient();
                     await client.GetAsync(subscribeUrl);
                     return Ok();
@@ -49,37 +50,41 @@ namespace NotificationsService.Controllers
                     {
                         try
                         {
-                            _logger.LogInformation($"Pr_Number: {reviewNotification.Metadata.Pr_Number}");
-                            _logger.LogInformation($"ReviewTitle: {reviewNotification.ReviewTitle}");
-                            _logger.LogInformation($"User_Login: {reviewNotification.Metadata.User_Login}");
-                            _logger.LogInformation($"Created_At: {reviewNotification.Metadata.Created_At}");
-                            _logger.LogInformation($"Review: {reviewNotification.Review}");
+                            _logger.LogInformation($"Pr_Number: {reviewNotification.metadata.pr_number}");
+                            //_logger.LogInformation($"ReviewTitle: {reviewNotification.reviewTitle}");
+                            //_logger.LogInformation($"User_Login: {reviewNotification.metadata.user_login}");
+                            //_logger.LogInformation($"Created_At: {reviewNotification.metadata.created_at}");
+                            //_logger.LogInformation($"Review: {reviewNotification.review}");
+                            var prItem = new PrItem
+                            {
+                                id = reviewNotification.metadata.pr_number,
+                                title = reviewNotification.reviewTitle,
+                                author = reviewNotification.metadata.user_login,
+                                date = reviewNotification.metadata.created_at,
+                                repo = reviewNotification.metadata.repo,
+                                review = "# Code Review: Lambda Function Diff\n\n## Summary\nThe diff shows the removal of a Flask-based implementation that duplicated functionality already present in the main lambda_handler function. This is generally a positive change that removes redundant code." 
+                                //reviewNotification.review
+                            };
+                            await _prService.BroadcastNewPrAsync(prItem);
+                            _logger.LogInformation($"Review for PR #{prItem.id} sent to BroadcastNewPrAsync().");
                         }
                         catch
                         {
-                            _logger.LogError("Message not properly deserialized.");
+                            _logger.LogError("Receive: Message not properly deserialized.");
                         }
 
-                        //var prItem = new PrItem
-                        //{
-                        //    id = reviewNotification.Metadata.Pr_Number,
-                        //    title = reviewNotification.ReviewTitle,
-                        //    author = reviewNotification.Metadata.User_Login,
-                        //    date = reviewNotification.Metadata.Created_At,
-                        //    review = reviewNotification.Review
-                        //};
-                        //await _prService.BroadcastNewPrAsync(prItem);
+
                     }
                     else
                     {
-                        _logger.LogError("No message content from SNS.");
+                        _logger.LogError("Receive: No message content from SNS.");
                     }
 
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing SNS message");
+                _logger.LogError(ex, "Receive: Error processing SNS message");
             }
 
             return Ok();

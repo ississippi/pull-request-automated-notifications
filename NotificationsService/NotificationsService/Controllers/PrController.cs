@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography.Xml;
+using NotificationsService.Services;
 
 namespace NotificationsService.Services
 {
@@ -23,6 +25,19 @@ namespace NotificationsService.Services
             return Ok("Healthy");
         }
 
+        [HttpGet("routes")]
+        public IActionResult ListRoutes()
+        {
+            return Ok(new[] {
+                "GET /api/pr",
+                "GET /api/pr/health",
+                "GET /api/pr/details?id=&repo=",
+                "GET /api/pr/review?prNumber=",
+                "POST /api/pr/feedback",
+                "POST /api/pr/decision"
+            });
+        }
+
         [HttpGet]
         public IActionResult GetOpenPrs()
         {
@@ -33,20 +48,49 @@ namespace NotificationsService.Services
 
         // 1. Get PR Details (already assumed)
         [HttpGet("details")]
-        public IActionResult GetDetails([FromQuery] int id)
+        public async Task<IActionResult> GetDetails([FromQuery] int id, string repo)
         {
-            _logger.LogInformation("Received request to get PR Details.");
-            // TODO: Replace with real logic
-            var detail = new
+            try
             {
-                id = id,
-                title = $"Pull Request #{id} Title Example",
-                status = (id % 2 == 0) ? "Open" : "Closed",
-                author = "John Doe",
-                date = "2024-04-28"
-            };
+                var dynamoService = new DynamoService(_logger);
+                _logger.LogInformation("Received request to get PR Details.");
+                var prItem = await dynamoService.GetReviewByIdAsync(id, repo);
+                _logger.LogInformation($"prItem from DDB: {prItem}");
+                if (prItem != null)
+                {
+                    var metadataMap = prItem["metadata"].M; // Step 1: get the map
+                    return Ok(new
+                    {
+                        id = metadataMap["pr_number"].S, // Step 2: get value from map (number as string)
+                        title = prItem["reviewTitle"].S,
+                        author = metadataMap["user_login"].S,
+                        date = metadataMap["created_at"].S,
+                        status = metadataMap["pr_state"].S,
+                        prurl = metadataMap["html_url"].S,
+                        repo = metadataMap["repo"].S,
+                        review = prItem["review"].S
+                    });
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Caught exception in GetDetails().");
+            }
+            return NotFound();
+            //var detail = new
+            //{
+            //    id = id,
+            //    title = $"Pull Request #{id} Title Example",
+            //    status = (id % 2 == 0) ? "Open" : "Closed",
+            //    author = "John Doe",
+            //    date = "2024-04-28"
+            //};
 
-            return Ok(detail);
+            //return Ok(detail);
         }
 
         // 2. Get PR Review text

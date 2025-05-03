@@ -24,6 +24,7 @@
                 <div class="card-body">
                     <h4 id="detail-title" class="card-title"></h4>
                     <p id="detail-meta" class="text-muted"></p>
+                    <p><a id="detail-giturl" href="#" class="link-underline-dark"></a></p>
 
                     <h5 class="mt-4">Review:</h5>
                     <div id="detail-review" class="border p-3 bg-white" style="min-height: 150px;"></div>
@@ -70,27 +71,29 @@ function renderPrList() {
         item.className = 'list-group-item list-group-item-action';
         item.innerHTML = `
             <strong>${pr.title}</strong><br>
-            <small>#${pr.id} opened on ${pr.created || 'Unknown'} by ${pr.user || 'Unknown'}</small>
+            <small>#${pr.id} opened on ${pr.date || 'Unknown'} by ${pr.author || 'Unknown'}</small>
         `;
-        item.onclick = () => showDetailView(pr.id);
+        item.onclick = () => showDetailView(pr.id,pr.repo);
         list.appendChild(item);
     });
 }
 
-async function showDetailView(prId) {
+async function showDetailView(prId,repo) {
     currentPr = prId;
 
     // Fetch PR metadata
-    const detailsResp = await fetch(`/api/pr/details?id=${prId}`);
+    const detailsResp = await fetch(`/api/pr/details?id=${prId}&repo=${repo}`);
     const details = await detailsResp.json();
+    console.info('Details received:', details);
 
     // Fetch PR review text
-    const reviewResp = await fetch(`/api/pr/review?prNumber=${prId}`);
+    const reviewResp = await fetch(`/api/pr/review?id=${prId}`);
     const review = await reviewResp.text();
 
     document.getElementById('detail-title').textContent = details.title;
     document.getElementById('detail-meta').textContent = `#${details.id} opened on ${details.date || 'Unknown'} by ${details.author || 'Unknown'}`;
-    document.getElementById('detail-review').textContent = review;
+    document.getElementById('detail-giturl').textContent = details.prurl;
+    document.getElementById('detail-review').textContent = details.review;
 
     document.getElementById('pr-list').classList.add('d-none');
     document.getElementById('pr-detail').classList.remove('d-none');
@@ -160,6 +163,7 @@ function setupWebSocket() {
 
     ws.onmessage = (event) => {
         const newPr = JSON.parse(event.data);
+        console.info('event data:', newPr);
         prList.unshift(newPr);
         renderPrList();
     };

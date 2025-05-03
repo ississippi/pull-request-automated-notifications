@@ -62,27 +62,46 @@ namespace NotificationsService.Services
             }
         }
 
-        public async Task BroadcastNewPrAsync(object newPr)
+        public async Task BroadcastNewPrAsync(PrItem newPr)
         {
-            var message = JsonSerializer.Serialize(newPr);
-            var bytes = Encoding.UTF8.GetBytes(message);
-            var segment = new ArraySegment<byte>(bytes);
-
-            foreach (var client in _clients.ToArray())
+            try
             {
-                if (client.State == WebSocketState.Open)
+                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} for broadcast.");
+                var message = JsonSerializer.Serialize(newPr);
+                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} Total clients:{_clients.Count}.");
+                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} message:{message}.");
+                if (message.Length >= 128 * 1024)
                 {
-                    try
+                    _logger.LogError($"BroadcastNewPrAsync: message is:{message.Length} bytes. Greater than 128k cannot be sent via websockets.");
+                    return;
+                }
+
+                //_logger.LogInformation($"BroadcastNewPrAsync: message size: {message.Length}.");
+                var bytes = Encoding.UTF8.GetBytes(message);
+                //_logger.LogInformation($"BroadcastNewPrAsync: bytes Length:{bytes.Count()}");
+                var segment = new ArraySegment<byte>(bytes);
+                _logger.LogInformation($"BroadcastNewPrAsync PR #{newPr.id} message ready for delivery. segment Length:{segment.Count}");
+                foreach (var client in _clients.ToArray())
+                {
+                    _logger.LogInformation($"Processing client for PR #{newPr.id},  Title:{newPr.title}.");
+                    if (client.State == WebSocketState.Open)
                     {
-                        await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                        _logger.LogInformation("Broadcasted new PR to client.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Error sending to WebSocket client. Removing client.");
-                        // WebSocket will be removed implicitly if closed later
+                        try
+                        {
+                            await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                            _logger.LogInformation($"Broadcasted PR #{newPr.id} Title:{newPr.title} to client.");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error sending to WebSocket client. Removing client.");
+                            // WebSocket will be removed implicitly if closed later
+                        }
                     }
                 }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Someting wong broadcasting PR #{newPr.id}.");
             }
         }
 
@@ -92,7 +111,7 @@ namespace NotificationsService.Services
             int id = 2;
             while (true)
             {
-                await Task.Delay(10000); // Every 10 sec, fake a new PR
+                await Task.Delay(30000); // Every 10 sec, fake a new PR
 
                 //var pr = new PrItem { Id = id.ToString(), Title = $"New PR {id}" };
                 //_prs.TryAdd(pr.Id, pr);
@@ -100,9 +119,10 @@ namespace NotificationsService.Services
                 var pr = new PrItem
                 {
                     id = id.ToString(),
-                    title = $"New PR {id}",
+                    title = $"Review for PR #{id} in /ississippi/repo: Fixing terrible bug.",
                     author = "johndoe",
                     date = DateTime.UtcNow.ToString("o"),
+                    repo = "ississippi%2Fpull-request-test-repo",
                     review = "Fake Review"
                 };
                 _prs.TryAdd(pr.id, pr);

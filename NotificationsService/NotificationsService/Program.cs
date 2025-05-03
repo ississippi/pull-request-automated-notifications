@@ -1,5 +1,6 @@
 ﻿using NotificationsService.Services;
 using Microsoft.Extensions.Logging;
+using System.Net;
 
 
 //var builder = WebApplication.CreateBuilder();
@@ -66,6 +67,8 @@ app.MapGet("/health", (ILogger<Program> logger) =>
     return Results.Ok("Healthy");
 });
 
+
+Console.WriteLine($"=========  The PR Notifications Service is Starting...  =============");
 foreach (var address in System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()))
 {
     Console.WriteLine($"Bound to IP: {address}");

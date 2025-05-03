@@ -194,6 +194,32 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
+  ## ECS Task Role ##
+  PrNotificationsEcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDbAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: arn:aws:dynamodb:us-east-1:238338230919:table/PRReviews
+
   ## Task Definition ##
   PrNotificationsTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -203,6 +229,7 @@ Resources:
       Memory: "1024"
       NetworkMode: awsvpc
       ExecutionRoleArn: !GetAtt PrNotificationsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt PrNotificationsEcsTaskRole.Arn
       ContainerDefinitions:
         - Name: notifications-service
           Image: !Ref EcrImageUri
