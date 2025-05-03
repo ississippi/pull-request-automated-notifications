@@ -163,6 +163,7 @@ function setupWebSocket() {
 
     ws.onmessage = (event) => {
         const newPr = JSON.parse(event.data);
+        console.log("Message received.");
         console.info('event data:', newPr);
         prList.unshift(newPr);
         renderPrList();
