@@ -22,7 +22,7 @@ namespace NotificationsService.Services
             _prs.TryAdd("1", new PrItem { id = "1", title = "Initial PR" });
             //Debug.WriteLine("PrService starting...");
             // Start background task to simulate new PRs
-            Task.Run(SimulateNewPrs);
+            //Task.Run(SimulateNewPrs);
         }
 
         public IEnumerable<PrItem> GetAllPrs() => _prs.Values;
@@ -123,7 +123,7 @@ namespace NotificationsService.Services
                     author = "johndoe",
                     date = DateTime.UtcNow.ToString("o"),
                     repo = "ississippi%2Fpull-request-test-repo",
-                    review = "Fake Review"
+                    //review = "Fake Review"
                 };
                 await BroadcastNewPrAsync(pr);
 

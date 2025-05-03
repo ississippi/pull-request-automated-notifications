@@ -61,8 +61,8 @@ namespace NotificationsService.Controllers
                                 title = reviewNotification.reviewTitle,
                                 author = reviewNotification.metadata.user_login,
                                 date = reviewNotification.metadata.created_at,
-                                repo = reviewNotification.metadata.repo,
-                                review = "# Code Review: Lambda Function Diff\n\n## Summary\nThe diff shows the removal of a Flask-based implementation that duplicated functionality already present in the main lambda_handler function. This is generally a positive change that removes redundant code."
+                                repo = reviewNotification.metadata.repo
+                                //review = "# Code Review: Lambda Function Diff\n\n## Summary\nThe diff shows the removal of a Flask-based implementation that duplicated functionality already present in the main lambda_handler function. This is generally a positive change that removes redundant code."
                                 //review = reviewNotification.review
                             };
                             await _prService.BroadcastNewPrAsync(prItem);
