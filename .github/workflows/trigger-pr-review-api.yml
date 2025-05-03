@@ -16,7 +16,9 @@ jobs:
       - name: Trigger Automated Code Review API
         env:
           API_TOKEN: ${{ secrets.CODE_REVIEW_API_KEY }} # Store your API token in GitHub Secrets
-          API_URL: "https://1lenggefi3.execute-api.us-east-1.amazonaws.com/prod/code-review" # Replace with your API endpoint
+          API_URL: "https://api.codeominous.com/prrequest" 
+          # API_URL: "https://39pq1eo3q2.execute-api.us-east-1.amazonaws.com/Prod/prrequest"
+          # API_URL: "https://1lenggefi3.execute-api.us-east-1.amazonaws.com/prod/code-review"
         run: |
           curl -X POST \
             -H "Authorization: Bearer $CODE_REVIEW_API_KEY" \
