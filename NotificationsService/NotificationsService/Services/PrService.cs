@@ -168,7 +168,7 @@ namespace NotificationsService.Services
                         // Receive timed out, make sure the client is still alive
                         if (socket.State != WebSocketState.Open)
                         {
-                            _logger.LogWarning("WebSocket client {ClientId} connection state changed to {State} during receive wait",
+                            _logger.LogInformation("WebSocket client {ClientId} connection state changed to {State} during receive wait",
                                 clientId, socket.State);
                             break;
                         }
@@ -280,6 +280,7 @@ namespace NotificationsService.Services
                             finally
                             {
                                 // Remove the client from the dictionary
+                                _logger.LogInformation($"MonitorClientTimeoutAsync: Removing client.");
                                 _clients.TryRemove(clientId, out _);
                             }
 
@@ -314,7 +315,9 @@ namespace NotificationsService.Services
         {
             try
             {
-                _logger.LogDebug("Sending heartbeats to {Count} clients", _clients.Count);
+                //var ecsTaskId = GetEcsTaskId();
+                //await LogEcsInformation();
+                _logger.LogInformation("[] Sending heartbeats to {Count} clients at {ticks}.", _clients.Count,DateTime.Now.Ticks);
 
                 // Create a JSON heartbeat message with a unique ID to track responses
                 var heartbeatId = Guid.NewGuid().ToString("N");
@@ -350,7 +353,7 @@ namespace NotificationsService.Services
                             client.PendingHeartbeatId = heartbeatId;
                             client.HeartbeatSentTime = DateTime.UtcNow;
 
-                            _logger.LogDebug("Sent heartbeat {HeartbeatId} to client {ClientId}",
+                            _logger.LogInformation("Sent heartbeat {HeartbeatId} to client {ClientId}",
                                 heartbeatId, clientId);
 
                             // Note: We don't update LastActivity here anymore
@@ -375,7 +378,7 @@ namespace NotificationsService.Services
                 {
                     if (_clients.TryRemove(clientId, out var removedClient))
                     {
-                        _logger.LogInformation("Removed dead client {ClientId} during heartbeat", clientId);
+                        _logger.LogInformation("SendHeartbeatsAsync: Removed dead client {ClientId} during heartbeat", clientId);
 
                         try
                         {
@@ -421,7 +424,7 @@ namespace NotificationsService.Services
 
                 // Serialize message outside the lock to minimize lock time
                 var message = JsonSerializer.Serialize(newPr);
-                message = message.Replace("\n", "").Replace("\r", "");
+                //message = message.Replace("\n", "").Replace("\r", "");
 
                 if (message.Length >= 128 * 1024)
                 {
@@ -490,7 +493,7 @@ namespace NotificationsService.Services
                     {
                         if (_clients.TryRemove(clientId, out var removedClient))
                         {
-                            _logger.LogInformation("Removed dead client {ClientId}", clientId);
+                            _logger.LogInformation("BroadcastNewPrAsync: Removed dead client {ClientId}", clientId);
                             try
                             {
                                 // Cancel the client's operations
@@ -552,12 +555,14 @@ namespace NotificationsService.Services
         // Implement IDisposable to properly clean up resources
         public void Dispose()
         {
+            _logger.LogInformation($"Entered dispose-1");
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)
         {
+            _logger.LogInformation($"Entered dispose-2");
             if (_disposed) return;
 
             if (disposing)
@@ -634,6 +639,102 @@ namespace NotificationsService.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during WebSocket connections cleanup");
+            }
+        }
+
+        private async Task<string> GetEcsTaskId()
+        {
+            var metadataUri = Environment.GetEnvironmentVariable("ECS_CONTAINER_METADATA_URI_V4");
+            var result = "No Task Id";
+            if (!string.IsNullOrEmpty(metadataUri))
+            {
+                using (var httpClient = new HttpClient())
+                {
+                    try
+                    {
+                        // Get task metadata
+                        var taskMetadataUri = $"{metadataUri}/task";
+                        var taskResponse = await httpClient.GetStringAsync(taskMetadataUri);
+                        var taskMetadata = JsonDocument.Parse(taskResponse);
+                        var taskArn = taskMetadata.RootElement
+                            .GetProperty("TaskARN").GetString();
+
+                        // Parse task ID from ARN
+                        var taskId = taskArn?.Split('/').LastOrDefault();
+                        result = taskId;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to retrieve ECS metadata: {Message}", ex.Message);
+                    }
+                }
+            }
+            return result;
+        }
+        private async Task LogEcsInformation()
+        {
+            var metadataUri = Environment.GetEnvironmentVariable("ECS_CONTAINER_METADATA_URI_V4");
+
+            if (!string.IsNullOrEmpty(metadataUri))
+            {
+                _logger.LogInformation("Running in ECS container");
+
+                using (var httpClient = new HttpClient())
+                {
+                    try
+                    {
+                        // Get container metadata
+                        var containerResponse = await httpClient.GetStringAsync(metadataUri);
+                        _logger.LogDebug("Container metadata: {Metadata}", containerResponse);
+
+                        var containerMetadata = JsonDocument.Parse(containerResponse);
+                        string containerId = null;
+
+                        // Safely try to get ContainerID
+                        if (containerMetadata.RootElement.TryGetProperty("ContainerID", out var containerIdElement))
+                        {
+                            containerId = containerIdElement.GetString();
+                        }
+                        else if (containerMetadata.RootElement.TryGetProperty("DockerId", out var dockerIdElement))
+                        {
+                            containerId = dockerIdElement.GetString();
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Container ID not found in metadata");
+                        }
+
+                        // Try to get task metadata
+                        try
+                        {
+                            var taskMetadataUri = $"{metadataUri}/task";
+                            var taskResponse = await httpClient.GetStringAsync(taskMetadataUri);
+                            _logger.LogDebug("Task metadata: {Metadata}", taskResponse);
+
+                            var taskMetadata = JsonDocument.Parse(taskResponse);
+                            string taskId = null;
+
+                            // Safely try to get TaskARN
+                            if (taskMetadata.RootElement.TryGetProperty("TaskARN", out var taskArnElement))
+                            {
+                                var taskArn = taskArnElement.GetString();
+                                taskId = taskArn?.Split('/').LastOrDefault();
+                            }
+
+                            _logger.LogInformation("Container ID: {ContainerId}, Task ID: {TaskId}",
+                                containerId ?? "Unknown", taskId ?? "Unknown");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to retrieve task metadata");
+                            _logger.LogInformation("Container ID: {ContainerId}", containerId ?? "Unknown");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to retrieve ECS metadata");
+                    }
+                }
             }
         }
     }

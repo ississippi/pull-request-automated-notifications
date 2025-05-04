@@ -6,8 +6,33 @@
     <title>Pull Requests</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
+    <style>
+        .high-contrast-markdown {
+            color: #000000 !important;
+            font-weight: 400;
+        }
+
+            .high-contrast-markdown h1,
+            .high-contrast-markdown h2,
+            .high-contrast-markdown h3 {
+                color: #000000 !important;
+                font-weight: 600 !important;
+            }
+
+            .high-contrast-markdown ul > li,
+            .high-contrast-markdown ol > li,
+            .high-contrast-markdown p,
+            .high-contrast-markdown pre {
+                color: #000000 !important;
+            }
+
+                .high-contrast-markdown pre code {
+                    background-color: #f6f8fa !important;
+                    color: #24292e !important;
+                }
+    </style>
 </head>
 <body class="bg-light">
     <div class="container py-4">
@@ -29,7 +54,7 @@
                     <p><a id="detail-giturl" href="#" class="link-underline-dark"></a></p>
 
                     <h5 class="mt-4">Review:</h5>
-                    <div id="detail-review" class="border p-3 bg-white markdown-body" style="min-height: 150px;"></div>
+                    <div id="detail-review" class="border p-3 bg-white markdown-body high-contrast-markdown" style="min-height: 150px;"></div>
 
                     <div class="mt-4">
                         <h6>Rate the Review:</h6>
@@ -93,15 +118,33 @@ async function showDetailView(prId,repo) {
     const review = await reviewResp.text();
 
     document.getElementById('detail-title').textContent = details.title;
-    document.getElementById('detail-meta').textContent = `#${details.id} opened on ${details.date || 'Unknown'} by ${details.author || 'Unknown'}`;
+    document.getElementById('detail-meta').textContent =
+        `#${details.id} opened on ${details.date || 'Unknown'} by ${details.author || 'Unknown'}`;
     //document.getElementById('detail-giturl').textContent = details.prurl;
     const gitUrlElement = document.getElementById('detail-giturl');
     gitUrlElement.href = details.prurl;
     gitUrlElement.textContent = `#${details.repo} PR#${details.id} on Github`
-    document.getElementById('detail-review').textContent = details.review;
 
     document.getElementById('pr-list').classList.add('d-none');
     document.getElementById('pr-detail').classList.remove('d-none');
+
+    // Convert Review markdown from the model to html for showdown ------------------------------
+    // Create converter instance with appropriate options
+    //document.getElementById('detail-review').textContent = details.review;
+    const converter = new showdown.Converter({
+        breaks: true,        // Enable line breaks
+        emoji: true,         // Support for emoji
+        tasklists: true,     // Support for task lists
+        tables: true,        // Support for tables
+        strikethrough: true  // Support for strikethrough
+    });
+
+    // Convert Review markdown to HTML
+    const reviewContent = details.review;
+    const html = converter.makeHtml(reviewContent);
+
+    // Set the Review HTML content
+    document.getElementById('detail-review').innerHTML = html;
 }
 
 function showListView() {
@@ -182,11 +225,9 @@ function setupWebSocket() {
         try {
             // Try to parse as JSON
             const data = JSON.parse(event.data);
-
             // Check if this is a heartbeat message
             if (data.type === 'heartbeat') {
                 console.debug(`Received heartbeat: ${data.id}`);
-
                 // Send heartbeat response immediately
                 if (isConnected) {
                     const response = {
@@ -197,7 +238,6 @@ function setupWebSocket() {
                     ws.send(JSON.stringify(response));
                     console.debug(`Sent heartbeat response for ${data.id}`);
                 }
-
                 // Don't process heartbeats as PR updates
                 return;
             }
@@ -205,7 +245,23 @@ function setupWebSocket() {
             // Handle normal PR messages
             console.log("PR message received.");
             console.info('event data:', data);
-            prList.unshift(data);
+
+            // Check if we already have this PR in our list
+            const existingIndex = prList.findIndex(pr =>
+                pr.repo === data.repo && pr.id === data.id
+            );
+
+            if (existingIndex !== -1) {
+                // Update the existing item
+                console.log(`Updating existing PR: ${data.repo}/${data.id}`);
+                prList[existingIndex] = data;
+            } else {
+                // Add as a new item at the beginning of the list
+                console.log(`Adding new PR: ${data.repo}/${data.id}`);
+                prList.unshift(data);
+            }
+
+            // Re-render the list
             renderPrList();
         } catch (error) {
             // If parsing fails, it might be a non-JSON message
