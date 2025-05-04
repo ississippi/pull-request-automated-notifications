@@ -24,7 +24,7 @@
                 <div class="card-body">
                     <h4 id="detail-title" class="card-title"></h4>
                     <p id="detail-meta" class="text-muted"></p>
-                    <p><a id="detail-giturl" href="#" class="link-underline-dark"></a></p>
+                    <p><a id="detail-giturl" href="#" class="link-underline-dark" target="_blank"></a></p>
 
                     <h5 class="mt-4">Review:</h5>
                     <div id="detail-review" class="border p-3 bg-white" style="min-height: 150px;"></div>
@@ -163,6 +163,7 @@ function setupWebSocket() {
 
     ws.onmessage = (event) => {
         const newPr = JSON.parse(event.data);
+        console.log("Message received.");
         console.info('event data:', newPr);
         prList.unshift(newPr);
         renderPrList();

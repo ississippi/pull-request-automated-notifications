@@ -22,7 +22,7 @@ namespace NotificationsService.Services
             _prs.TryAdd("1", new PrItem { id = "1", title = "Initial PR" });
             //Debug.WriteLine("PrService starting...");
             // Start background task to simulate new PRs
-            Task.Run(SimulateNewPrs);
+            //Task.Run(SimulateNewPrs);
         }
 
         public IEnumerable<PrItem> GetAllPrs() => _prs.Values;
@@ -46,6 +46,7 @@ namespace NotificationsService.Services
                         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by client", CancellationToken.None);
                     }
                 }
+                _logger.LogInformation("**** HandleWebSocketAsync WebSocket is not in open state.");
             }
             catch (WebSocketException ex)
             {
@@ -66,30 +67,32 @@ namespace NotificationsService.Services
         {
             try
             {
-                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} for broadcast.");
+                _prs.TryAdd(newPr.id, newPr);
+                //_logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} for broadcast.");
                 var message = JsonSerializer.Serialize(newPr);
-                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} Total clients:{_clients.Count}.");
-                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} message:{message}.");
+                message = message.Replace("\n", "").Replace("\r", "");
+                //_logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} message:{message} (removed newlines).");
                 if (message.Length >= 128 * 1024)
                 {
                     _logger.LogError($"BroadcastNewPrAsync: message is:{message.Length} bytes. Greater than 128k cannot be sent via websockets.");
                     return;
                 }
-
+                //_logger.LogInformation($"BroadcaseNewPrAsync sending payload for PR #{newPr.id} with payload: {message}");
                 //_logger.LogInformation($"BroadcastNewPrAsync: message size: {message.Length}.");
                 var bytes = Encoding.UTF8.GetBytes(message);
                 //_logger.LogInformation($"BroadcastNewPrAsync: bytes Length:{bytes.Count()}");
                 var segment = new ArraySegment<byte>(bytes);
-                _logger.LogInformation($"BroadcastNewPrAsync PR #{newPr.id} message ready for delivery. segment Length:{segment.Count}");
+                //_logger.LogInformation($"BroadcastNewPrAsync PR #{newPr.id} message ready for delivery. segment Length:{segment.Count}");
+                _logger.LogInformation($"BroadcastNewPrAsync received PR #{newPr.id} Total clients:{_clients.Count}.");
                 foreach (var client in _clients.ToArray())
                 {
-                    _logger.LogInformation($"Processing client for PR #{newPr.id},  Title:{newPr.title}.");
+                    _logger.LogInformation($"Processing websocket send for PR #{newPr.id}, Title:{newPr.title} state:{client.State.ToString()}.");
                     if (client.State == WebSocketState.Open)
                     {
                         try
                         {
                             await client.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                            _logger.LogInformation($"Broadcasted PR #{newPr.id} Title:{newPr.title} to client.");
+                            _logger.LogInformation($"**** Broadcasted PR #{newPr.id} Title:{newPr.title} to client.");
                         }
                         catch (Exception ex)
                         {
@@ -113,9 +116,6 @@ namespace NotificationsService.Services
             {
                 await Task.Delay(30000); // Every 10 sec, fake a new PR
 
-                //var pr = new PrItem { Id = id.ToString(), Title = $"New PR {id}" };
-                //_prs.TryAdd(pr.Id, pr);
-                //await BroadcastNewPr(pr);
                 var pr = new PrItem
                 {
                     id = id.ToString(),
@@ -123,9 +123,8 @@ namespace NotificationsService.Services
                     author = "johndoe",
                     date = DateTime.UtcNow.ToString("o"),
                     repo = "ississippi%2Fpull-request-test-repo",
-                    review = "Fake Review"
+                    //review = "Fake Review"
                 };
-                _prs.TryAdd(pr.id, pr);
                 await BroadcastNewPrAsync(pr);
 
                 id++;
