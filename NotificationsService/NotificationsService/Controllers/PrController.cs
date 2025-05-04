@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography.Xml;
 using NotificationsService.Services;
+using NotificationsService.Models;
+using Amazon.DynamoDBv2.Model;
 
 namespace NotificationsService.Services
 {
@@ -29,7 +31,7 @@ namespace NotificationsService.Services
         public IActionResult ListRoutes()
         {
             return Ok(new[] {
-                "GET /api/pr",
+                "GET /api/pr/openprs",
                 "GET /api/pr/health",
                 "GET /api/pr/details?id=&repo=",
                 "GET /api/pr/review?prNumber=",
@@ -38,12 +40,49 @@ namespace NotificationsService.Services
             });
         }
 
-        [HttpGet]
-        public IActionResult GetOpenPrs()
+        [HttpGet("openprs")]
+        public async Task<IActionResult> GetOpenPrs()
         {
-            _logger.LogInformation("Received request to get open PRs.");
-            var prs = _prService.GetAllPrs();
-            return Ok(prs);
+            _logger.LogInformation("Received request to get all open PRs.");
+            try
+            {
+                var dynamoService = new DynamoService(_logger);
+                _logger.LogInformation("Received request to get PR Details.");
+                var allReviews = await dynamoService.GetAllReviewsAsync();
+                // Create a list to hold the processed reviews
+                var processedReviews = new List<object>();
+                // Process each review item using the shared parsing method
+                foreach (var prItem in allReviews)
+                {
+                    try
+                    {
+                        var reviewDetails = GetPrItemDetails(prItem);
+                        if (reviewDetails != null)
+                        {
+                            processedReviews.Add(reviewDetails);
+                            _logger.LogDebug($"Processed review with ID: {((dynamic)reviewDetails).id}");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Skipping review item with missing required fields");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing individual review item");
+                        // Continue with next item rather than failing the entire request
+                    }
+                }
+
+                _logger.LogInformation($"Successfully processed {processedReviews.Count} reviews");
+                return Ok(processedReviews);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Caught exception in GetDetails().");
+            }
+            return NotFound();
+
         }
 
         // 1. Get PR Details (already assumed)
@@ -81,16 +120,6 @@ namespace NotificationsService.Services
                 _logger.LogError(ex, $"Caught exception in GetDetails().");
             }
             return NotFound();
-            //var detail = new
-            //{
-            //    id = id,
-            //    title = $"Pull Request #{id} Title Example",
-            //    status = (id % 2 == 0) ? "Open" : "Closed",
-            //    author = "John Doe",
-            //    date = "2024-04-28"
-            //};
-
-            //return Ok(detail);
         }
 
         // 2. Get PR Review text
@@ -108,8 +137,8 @@ namespace NotificationsService.Services
         [HttpPost("feedback")]
         public IActionResult PostFeedback([FromBody] FeedbackRequest request)
         {
-            // You could log/store this feedback if needed
-            Console.WriteLine($"Received feedback: PR#{request.PrNumber}, Vote: {request.Vote}");
+            _logger.LogInformation($"Received feedback: PR#{request.prNumber}, Vote: {request.vote}");
+            //Console.WriteLine($"Received feedback: PR#{request.PrNumber}, Vote: {request.Vote}");
 
             return Ok(new { message = "Feedback received" });
         }
@@ -118,24 +147,45 @@ namespace NotificationsService.Services
         [HttpPost("decision")]
         public IActionResult PostDecision([FromBody] DecisionRequest request)
         {
-            // You could process/store this action if needed
-            Console.WriteLine($"Received decision: PR#{request.PrNumber}, Decision: {request.Decision}");
-
+            _logger.LogInformation($"Received decision: PR#{request.prNumber}, Decision: {request.decision}");
+            // call the git service to submit the decision to Git
             return Ok(new { message = "Decision received" });
         }
+        public object GetPrItemDetails(Dictionary<string, AttributeValue> prItem)
+        {
+            if (prItem == null || !prItem.ContainsKey("metadata") || !prItem.ContainsKey("reviewTitle") || !prItem.ContainsKey("review"))
+            {
+                return null;
+            }
+
+            var metadataMap = prItem["metadata"].M;
+
+            return new
+            {
+                id = metadataMap.ContainsKey("pr_number") ? metadataMap["pr_number"].S : "Unknown",
+                title = prItem["reviewTitle"].S,
+                author = metadataMap.ContainsKey("user_login") ? metadataMap["user_login"].S : "Unknown",
+                date = metadataMap.ContainsKey("created_at") ? metadataMap["created_at"].S : "Unknown",
+                status = metadataMap.ContainsKey("pr_state") ? metadataMap["pr_state"].S : "Unknown",
+                prurl = metadataMap.ContainsKey("html_url") ? metadataMap["html_url"].S : "Unknown",
+                repo = metadataMap.ContainsKey("repo") ? metadataMap["repo"].S : "Unknown",
+                review = prItem["review"].S
+            };
+        }
+
     }
 
     // Request DTOs
     public class FeedbackRequest
     {
-        public int PrNumber { get; set; }
-        public string Vote { get; set; } // \"up\" or \"down\"
+        public int prNumber { get; set; }
+        public string vote { get; set; } // \"up\" or \"down\"
     }
 
     public class DecisionRequest
     {
-        public int PrNumber { get; set; }
-        public string Decision { get; set; } // \"Approve\" or \"Request Changes\"
+        public int prNumber { get; set; }
+        public string decision { get; set; } // \"Approve\" or \"Request Changes\"
     }
 }
 

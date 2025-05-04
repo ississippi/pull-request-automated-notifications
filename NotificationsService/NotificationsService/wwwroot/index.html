@@ -24,7 +24,7 @@
                 <div class="card-body">
                     <h4 id="detail-title" class="card-title"></h4>
                     <p id="detail-meta" class="text-muted"></p>
-                    <p><a id="detail-giturl" href="#" class="link-underline-dark" target="_blank"></a></p>
+                    <p><a id="detail-giturl" href="#" class="link-underline-dark"></a></p>
 
                     <h5 class="mt-4">Review:</h5>
                     <div id="detail-review" class="border p-3 bg-white" style="min-height: 150px;"></div>
@@ -58,7 +58,7 @@ let prList = [];
 let currentPr = null;
 
 async function fetchPrs() {
-    const response = await fetch('/api/pr');
+    const response = await fetch('/api/pr/openprs');
     prList = await response.json();
     renderPrList();
 }
@@ -111,7 +111,7 @@ async function sendFeedback(type) {
     }
 
     try {
-        await fetch('/notification/feedback', {
+        await fetch('/api/pr/feedback', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -138,7 +138,7 @@ async function submitReviewAction() {
     }
 
     try {
-        await fetch('/notification/decision', {
+        await fetch('/api/pr/decision', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -157,19 +157,81 @@ async function submitReviewAction() {
 
 
 function setupWebSocket() {
-    console.info('setupWebSocket() entered.')
+    console.info('setupWebSocket() entered.');
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${protocol}://${window.location.host}/ws/prs`);
 
-    ws.onmessage = (event) => {
-        const newPr = JSON.parse(event.data);
-        console.log("Message received.");
-        console.info('event data:', newPr);
-        prList.unshift(newPr);
-        renderPrList();
+    // Track connection state
+    let isConnected = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000; // 3 seconds base delay
+
+    ws.onopen = () => {
+        console.info('WebSocket connection established');
+        isConnected = true;
+        reconnectAttempts = 0;
     };
 
-    ws.onerror = (err) => console.error('WebSocket error', err);
+    ws.onmessage = (event) => {
+        try {
+            // Try to parse as JSON
+            const data = JSON.parse(event.data);
+
+            // Check if this is a heartbeat message
+            if (data.type === 'heartbeat') {
+                console.debug(`Received heartbeat: ${data.id}`);
+
+                // Send heartbeat response immediately
+                if (isConnected) {
+                    const response = {
+                        type: 'heartbeat-response',
+                        id: data.id,
+                        timestamp: new Date().toISOString()
+                    };
+                    ws.send(JSON.stringify(response));
+                    console.debug(`Sent heartbeat response for ${data.id}`);
+                }
+
+                // Don't process heartbeats as PR updates
+                return;
+            }
+
+            // Handle normal PR messages
+            console.log("PR message received.");
+            console.info('event data:', data);
+            prList.unshift(data);
+            renderPrList();
+        } catch (error) {
+            // If parsing fails, it might be a non-JSON message
+            console.warn('Received non-JSON message:', error);
+        }
+    };
+
+    ws.onerror = (err) => {
+        console.error('WebSocket error', err);
+        isConnected = false;
+    };
+
+    ws.onclose = (event) => {
+        isConnected = false;
+        console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
+
+        // Attempt to reconnect if not closed normally and max attempts not reached
+        if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = reconnectDelay * reconnectAttempts; // Exponential backoff
+            console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts} of ${maxReconnectAttempts})`);
+
+            setTimeout(() => {
+                console.log('Reconnecting...');
+                setupWebSocket(); // Recursive call to reestablish connection
+            }, delay);
+        }
+    };
+
+    // Return the WebSocket instance for external use if needed
+    return ws;
 }
 
 console.info('Initial fetch PRs');
