@@ -5,6 +5,7 @@ on:
       types:
         - opened
         - reopened
+
 jobs:
   call-api:
     runs-on: ubuntu-latest
@@ -26,6 +27,7 @@ jobs:
             -H "Authorization: Bearer $CODE_REVIEW_API_KEY" \
             -H "Content-Type: application/json" \
             -d '{
+              "pr_event_type": "${{ github.event.action }}",
               "pr_number": "${{ github.event.pull_request.number }}",
               "repo": "${{ github.repository }}",
               "pr_title": "${{ github.event.pull_request.title }}",
