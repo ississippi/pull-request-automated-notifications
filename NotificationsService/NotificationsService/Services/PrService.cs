@@ -317,7 +317,7 @@ namespace NotificationsService.Services
             {
                 //var ecsTaskId = GetEcsTaskId();
                 //await LogEcsInformation();
-                _logger.LogInformation("[] Sending heartbeats to {Count} clients at {ticks}.", _clients.Count,DateTime.Now.Ticks);
+                //_logger.LogInformation("[] Sending heartbeats to {Count} clients at {ticks}.", _clients.Count,DateTime.Now.Ticks);
 
                 // Create a JSON heartbeat message with a unique ID to track responses
                 var heartbeatId = Guid.NewGuid().ToString("N");
@@ -353,8 +353,7 @@ namespace NotificationsService.Services
                             client.PendingHeartbeatId = heartbeatId;
                             client.HeartbeatSentTime = DateTime.UtcNow;
 
-                            _logger.LogInformation("Sent heartbeat {HeartbeatId} to client {ClientId}",
-                                heartbeatId, clientId);
+                            //_logger.LogInformation("Sent heartbeat {HeartbeatId} to client {ClientId}",heartbeatId, clientId);
 
                             // Note: We don't update LastActivity here anymore
                             // It will only be updated when the client responds to the heartbeat
