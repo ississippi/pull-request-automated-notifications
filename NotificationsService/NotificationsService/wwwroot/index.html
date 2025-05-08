@@ -169,7 +169,7 @@ async function sendFeedback(type) {
                 vote: type // 'up' or 'down'
             })
         });
-        alert(`Thanks for your ${type === 'up' ? 'positive' : 'negative'} feedback!`);
+        alert(`Thanks for your ${type === 'up' ? 'Thumbs Up' : 'Thumbs Down'} feedback!`);
         console.info('Feedback received:', type);
     } catch (error) {
         console.error('Failed to send feedback', error);
@@ -185,7 +185,11 @@ async function submitReviewAction() {
         return;
     }
 
+
     try {
+        const reviewBody = document.getElementById("detail-review").value ||
+            document.getElementById("detail-review").innerText;
+
         await fetch('/api/pr/decision', {
             method: 'POST',
             headers: {
@@ -193,7 +197,8 @@ async function submitReviewAction() {
             },
             body: JSON.stringify({
                 prNumber: currentPr,
-                decision: selected.value // 'Approve' or 'Request Changes'
+                decision: selected.value, // 'Approve' or 'Request Changes'
+                review: reviewBody
             })
         });
         alert(`Your decision (${selected.value}) has been submitted!`);

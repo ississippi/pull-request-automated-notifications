@@ -22,7 +22,7 @@ namespace NotificationsService.Services
         {
             // Build the DDB partition key.
             var partitionKey = $"{repo}#{prNumber}";
-            _logger.LogInformation($"partitionKey: {partitionKey}");
+            //_logger.LogInformation($"partitionKey: {partitionKey}");
             var request = new GetItemRequest
             {
                 TableName = _tableName,
@@ -49,7 +49,7 @@ namespace NotificationsService.Services
             var request = new ScanRequest
             {
                 TableName = _tableName,
-                Limit = 10 // avoid accidental full table scan
+                Limit = 20 // avoid accidental full table scan
             };
 
             var response = await _dynamoDbClient.ScanAsync(request);

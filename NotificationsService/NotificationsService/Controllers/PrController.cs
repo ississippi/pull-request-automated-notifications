@@ -94,7 +94,7 @@ namespace NotificationsService.Services
                 var dynamoService = new DynamoService(_logger);
                 _logger.LogInformation("Received request to get PR Details.");
                 var prItem = await dynamoService.GetReviewByIdAsync(id, repo);
-                _logger.LogInformation($"prItem from DDB: {prItem}");
+                //_logger.LogInformation($"prItem from DDB: {prItem}");
                 if (prItem != null)
                 {
                     var metadataMap = prItem["metadata"].M; // Step 1: get the map
@@ -145,7 +145,7 @@ namespace NotificationsService.Services
 
         // 4. POST action decision (Approve or Request Changes)
         [HttpPost("decision")]
-        public IActionResult PostDecision([FromBody] DecisionRequest request)
+        public IActionResult PostReview([FromBody] DecisionRequest request)
         {
             _logger.LogInformation($"Received decision: PR#{request.prNumber}, Decision: {request.decision}");
             // call the git service to submit the decision to Git
@@ -186,6 +186,7 @@ namespace NotificationsService.Services
     {
         public int prNumber { get; set; }
         public string decision { get; set; } // \"Approve\" or \"Request Changes\"
+        public string review { get; set; }
     }
 }
 
