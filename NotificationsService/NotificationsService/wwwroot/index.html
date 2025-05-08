@@ -93,6 +93,10 @@ async function fetchPrs() {
 function renderPrList() {
     const list = document.getElementById('pr-list');
     list.innerHTML = '';
+
+    // Sort PRs by date (most recent first)
+    prList.sort((a, b) => new Date(b.date) - new Date(a.date));
+
     prList.forEach(pr => {
         const item = document.createElement('button');
         item.className = 'list-group-item list-group-item-action';
@@ -127,6 +131,7 @@ async function showDetailView(prId,repo) {
 
     document.getElementById('pr-list').classList.add('d-none');
     document.getElementById('pr-detail').classList.remove('d-none');
+    document.getElementById("approve").checked = true;
 
     // Convert Review markdown from the model to html for showdown ------------------------------
     // Create converter instance with appropriate options
