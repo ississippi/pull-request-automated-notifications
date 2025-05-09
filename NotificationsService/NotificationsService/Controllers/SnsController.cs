@@ -24,8 +24,7 @@ namespace NotificationsService.Controllers
         {
             using var reader = new StreamReader(Request.Body);
             var body = await reader.ReadToEndAsync();
-            //_logger.LogInformation("Receive: SNS message received: {0}", body);
-            _logger.LogInformation("Receive: SNS message received.");
+            _logger.LogDebug("Receive: SNS message received: {0}", body);
 
             try
             {
@@ -50,7 +49,7 @@ namespace NotificationsService.Controllers
                     {
                         try
                         {
-                            _logger.LogInformation($"Pr_Number: {reviewNotification.metadata.pr_number}");
+                            //_logger.LogInformation($"Pr_Number: {reviewNotification.metadata.pr_number}");
                             //_logger.LogInformation($"ReviewTitle: {reviewNotification.reviewTitle}");
                             //_logger.LogInformation($"User_Login: {reviewNotification.metadata.user_login}");
                             //_logger.LogInformation($"Created_At: {reviewNotification.metadata.created_at}");
@@ -66,7 +65,7 @@ namespace NotificationsService.Controllers
                                 //review = reviewNotification.review
                             };
                             await _prService.BroadcastNewPrAsync(prItem);
-                            _logger.LogInformation($"Review for PR #{prItem.id} sent to BroadcastNewPrAsync().");
+                            //_logger.LogInformation($"Review for PR #{prItem.id} sent to BroadcastNewPrAsync().");
                         }
                         catch
                         {
