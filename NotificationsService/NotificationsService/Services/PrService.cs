@@ -516,8 +516,7 @@ namespace NotificationsService.Services
                         }
                     }
 
-                    _logger.LogInformation("Completed broadcasting PR #{PrId}. Active clients: {Count}",
-                        newPr.id, _clients.Count);
+                    _logger.LogDebug("Completed broadcasting PR #{PrId}. Active clients: {Count}", newPr.id, _clients.Count);
                 }
                 finally
                 {
