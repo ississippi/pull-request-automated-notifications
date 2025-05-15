@@ -553,14 +553,14 @@ namespace NotificationsService.Services
         // Implement IDisposable to properly clean up resources
         public void Dispose()
         {
-            _logger.LogInformation($"Entered dispose-1");
+            _logger.LogDebug($"Entered dispose-1");
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)
         {
-            _logger.LogInformation($"Entered dispose-2");
+            _logger.LogDebug($"Entered dispose-2");
             if (_disposed) return;
 
             if (disposing)

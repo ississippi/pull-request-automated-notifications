@@ -74,7 +74,7 @@ namespace NotificationsService.Services
                     }
                 }
 
-                _logger.LogInformation($"Successfully processed {processedReviews.Count} reviews");
+                _logger.LogDebug($"Successfully processed {processedReviews.Count} reviews");
                 return Ok(processedReviews);
             }
             catch (Exception ex)
@@ -140,7 +140,7 @@ namespace NotificationsService.Services
             _logger.LogDebug($"Received feedback: PR#{request.prNumber}, Vote: {request.vote}");
             //Console.WriteLine($"Received feedback: PR#{request.PrNumber}, Vote: {request.Vote}");
 
-            return Ok(new { message = "Feedback received" });
+            return Ok(new { message = "Feedback received by the Notifications Service" });
         }
 
         // 4. POST action decision (Approve or Request Changes)
@@ -149,7 +149,7 @@ namespace NotificationsService.Services
         {
             _logger.LogDebug($"Received decision: PR#{request.prNumber}, Decision: {request.decision}");
             // call the git service to submit the decision to Git
-            return Ok(new { message = "Decision received" });
+            return Ok(new { message = "Decision received by the Notifications Service" });
         }
         public object GetPrItemDetails(Dictionary<string, AttributeValue> prItem)
         {
