@@ -4,36 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pull Requests</title>
+
+    <!-- External CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
+
+    <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
-    <style>
-        .high-contrast-markdown {
-            color: #000000 !important;
-            font-weight: 400;
-        }
-
-            .high-contrast-markdown h1,
-            .high-contrast-markdown h2,
-            .high-contrast-markdown h3 {
-                color: #000000 !important;
-                font-weight: 600 !important;
-            }
-
-            .high-contrast-markdown ul > li,
-            .high-contrast-markdown ol > li,
-            .high-contrast-markdown p,
-            .high-contrast-markdown pre {
-                color: #000000 !important;
-            }
-
-                .high-contrast-markdown pre code {
-                    background-color: #f6f8fa !important;
-                    color: #24292e !important;
-                }
-    </style>
 </head>
+
 <body class="bg-light">
     <div class="container py-4">
         <h1 class="mb-4">Open Pull Requests</h1>
@@ -54,7 +35,26 @@
                     <p><a id="detail-giturl" href="#" class="link-underline-dark"></a></p>
 
                     <h5 class="mt-4">Review:</h5>
-                    <div id="detail-review" class="border p-3 bg-white markdown-body high-contrast-markdown" style="min-height: 150px;"></div>
+                    <!-- Editable Review Box -->
+                    <div id="detail-review"
+                         class="border p-3 bg-white markdown-body high-contrast-markdown"
+                         contenteditable="true">
+                    </div>
+
+                    <!-- Chat Response Display -->
+                    <div id="chat-response-box"
+                         class="border bg-white mt-3 p-2"
+                         style="height: 150px; overflow-y: auto; white-space: pre-wrap;">
+                        <!-- Chat responses will appear here -->
+                    </div>
+
+                    <!-- Chat Text Area and Submit Button -->
+                    <div class="chat-container">
+                        <textarea id="chat-input" placeholder="Enter your comment..."></textarea>
+                        <button class="chat-submit-btn" onclick="submitChatComment()">
+                            &#10148;
+                        </button>
+                    </div>
 
                     <div class="mt-4">
                         <h6>Rate the Review:</h6>
@@ -81,234 +81,250 @@
     </div>
 
     <script>
-let prList = [];
-let currentPr = null;
+        let prList = [];
+        let currentPr = null;
 
-async function fetchPrs() {
-    const response = await fetch('/api/pr/openprs');
-    prList = await response.json();
-    renderPrList();
-}
+        async function fetchPrs() {
+            const response = await fetch('/api/pr/openprs');
+            prList = await response.json();
+            renderPrList();
+        }
 
-function renderPrList() {
-    const list = document.getElementById('pr-list');
-    list.innerHTML = '';
+        function renderPrList() {
+            const list = document.getElementById('pr-list');
+            list.innerHTML = '';
 
-    // Sort PRs by date (most recent first)
-    prList.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Sort PRs by date (most recent first)
+            prList.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    prList.forEach(pr => {
-        const item = document.createElement('button');
-        item.className = 'list-group-item list-group-item-action';
-        item.innerHTML = `
-            <strong>${pr.title}</strong><br>
-            <small>#${pr.id} opened on ${pr.date || 'Unknown'} by ${pr.author || 'Unknown'}</small>
-        `;
-        item.onclick = () => showDetailView(pr.id,pr.repo);
-        list.appendChild(item);
-    });
-}
+            prList.forEach(pr => {
+                const item = document.createElement('button');
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `
+                <strong>${pr.title}</strong><br>
+                <small>#${pr.id} opened on ${pr.date || 'Unknown'} by ${pr.author || 'Unknown'}</small>
+            `;
+                item.onclick = () => showDetailView(pr.id, pr.repo);
+                list.appendChild(item);
+            });
+        }
 
-async function showDetailView(prId,repo) {
-    currentPr = prId;
+        async function showDetailView(prId, repo) {
+            currentPr = prId;
 
-    // Fetch PR metadata
-    const detailsResp = await fetch(`/api/pr/details?id=${prId}&repo=${repo}`);
-    const details = await detailsResp.json();
-    console.info('Details received:', details);
+            // Fetch PR metadata
+            const detailsResp = await fetch(`/api/pr/details?id=${prId}&repo=${repo}`);
+            const details = await detailsResp.json();
+            console.info('Details received:', details);
 
-    // Fetch PR review text
-    const reviewResp = await fetch(`/api/pr/review?id=${prId}`);
-    const review = await reviewResp.text();
+            // Fetch PR review text
+            const reviewResp = await fetch(`/api/pr/review?id=${prId}`);
+            const review = await reviewResp.text();
 
-    document.getElementById('detail-title').textContent = details.title;
-    document.getElementById('detail-meta').textContent =
-        `#${details.id} opened on ${details.date || 'Unknown'} by ${details.author || 'Unknown'}`;
-    //document.getElementById('detail-giturl').textContent = details.prurl;
-    const gitUrlElement = document.getElementById('detail-giturl');
-    gitUrlElement.href = details.prurl;
-    gitUrlElement.textContent = `#${details.repo} PR#${details.id} on Github`
+            document.getElementById('detail-title').textContent = details.title;
+            document.getElementById('detail-meta').textContent =
+                `#${details.id} opened on ${details.date || 'Unknown'} by ${details.author || 'Unknown'}`;
+            //document.getElementById('detail-giturl').textContent = details.prurl;
+            const gitUrlElement = document.getElementById('detail-giturl');
+            gitUrlElement.href = details.prurl;
+            gitUrlElement.textContent = `#${details.repo} PR#${details.id} on Github`
 
-    document.getElementById('pr-list').classList.add('d-none');
-    document.getElementById('pr-detail').classList.remove('d-none');
-    document.getElementById("approve").checked = true;
+            document.getElementById('pr-list').classList.add('d-none');
+            document.getElementById('pr-detail').classList.remove('d-none');
+            document.getElementById("approve").checked = true;
 
-    // Convert Review markdown from the model to html for showdown ------------------------------
-    // Create converter instance with appropriate options
-    //document.getElementById('detail-review').textContent = details.review;
-    const converter = new showdown.Converter({
-        breaks: true,        // Enable line breaks
-        emoji: true,         // Support for emoji
-        tasklists: true,     // Support for task lists
-        tables: true,        // Support for tables
-        strikethrough: true  // Support for strikethrough
-    });
+            // Convert Review markdown from the model to html for showdown ------------------------------
+            // Create converter instance with appropriate options
+            //document.getElementById('detail-review').textContent = details.review;
+            const converter = new showdown.Converter({
+                breaks: true,        // Enable line breaks
+                emoji: true,         // Support for emoji
+                tasklists: true,     // Support for task lists
+                tables: true,        // Support for tables
+                strikethrough: true  // Support for strikethrough
+            });
 
-    // Convert Review markdown to HTML
-    const reviewContent = details.review;
-    const html = converter.makeHtml(reviewContent);
+            // Convert Review markdown to HTML
+            const reviewContent = details.review;
+            const html = converter.makeHtml(reviewContent);
 
-    // Set the Review HTML content
-    document.getElementById('detail-review').innerHTML = html;
-}
+            // Set the Review HTML content
+            document.getElementById('detail-review').innerHTML = html;
+        }
 
-function showListView() {
-    document.getElementById('pr-detail').classList.add('d-none');
-    document.getElementById('pr-list').classList.remove('d-none');
-}
+        function showListView() {
+            document.getElementById('pr-detail').classList.add('d-none');
+            document.getElementById('pr-list').classList.remove('d-none');
+        }
 
-async function sendFeedback(type) {
-    if (!currentPr) {
-        alert('No PR selected.');
-        return;
-    }
-
-    try {
-        await fetch('/api/pr/feedback', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                prNumber: currentPr,
-                vote: type // 'up' or 'down'
-            })
-        });
-        alert(`Thanks for your ${type === 'up' ? 'Thumbs Up' : 'Thumbs Down'} feedback!`);
-        console.info('Feedback received:', type);
-    } catch (error) {
-        console.error('Failed to send feedback', error);
-        alert('Failed to send feedback.');
-    }
-}
-
-async function submitReviewAction() {
-    console.info('Review submitted');
-    const selected = document.querySelector('input[name="reviewAction"]:checked');
-    if (!selected) {
-        alert('Please select an action before submitting.');
-        return;
-    }
-
-
-    try {
-        const reviewBody = document.getElementById("detail-review").value ||
-            document.getElementById("detail-review").innerText;
-
-        await fetch('/api/pr/decision', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                prNumber: currentPr,
-                decision: selected.value, // 'Approve' or 'Request Changes'
-                review: reviewBody
-            })
-        });
-        alert(`Your decision (${selected.value}) has been submitted!`);
-    } catch (error) {
-        console.error('Failed to submit decision', error);
-        alert('Failed to submit your decision.');
-    }
-}
-
-
-function setupWebSocket() {
-    console.info('setupWebSocket() entered.');
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${window.location.host}/ws/prs`);
-
-    // Track connection state
-    let isConnected = false;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelay = 3000; // 3 seconds base delay
-
-    ws.onopen = () => {
-        console.info('WebSocket connection established');
-        isConnected = true;
-        reconnectAttempts = 0;
-    };
-
-    ws.onmessage = (event) => {
-        try {
-            // Try to parse as JSON
-            const data = JSON.parse(event.data);
-            // Check if this is a heartbeat message
-            if (data.type === 'heartbeat') {
-                console.debug(`Received heartbeat: ${data.id}`);
-                // Send heartbeat response immediately
-                if (isConnected) {
-                    const response = {
-                        type: 'heartbeat-response',
-                        id: data.id,
-                        timestamp: new Date().toISOString()
-                    };
-                    ws.send(JSON.stringify(response));
-                    console.debug(`Sent heartbeat response for ${data.id}`);
-                }
-                // Don't process heartbeats as PR updates
+        async function sendFeedback(type) {
+            if (!currentPr) {
+                alert('No PR selected.');
                 return;
             }
 
-            // Handle normal PR messages
-            console.log("PR message received.");
-            console.info('event data:', data);
+            try {
+                await fetch('/api/pr/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prNumber: currentPr,
+                        vote: type // 'up' or 'down'
+                    })
+                });
+                alert(`Thanks for your ${type === 'up' ? 'Thumbs Up' : 'Thumbs Down'} feedback!`);
+                console.info('Feedback received:', type);
+            } catch (error) {
+                console.error('Failed to send feedback', error);
+                alert('Failed to send feedback.');
+            }
+        }
 
-            // Check if we already have this PR in our list
-            const existingIndex = prList.findIndex(pr =>
-                pr.repo === data.repo && pr.id === data.id
-            );
-
-            if (existingIndex !== -1) {
-                // Update the existing item
-                console.log(`Updating existing PR: ${data.repo}/${data.id}`);
-                prList[existingIndex] = data;
-            } else {
-                // Add as a new item at the beginning of the list
-                console.log(`Adding new PR: ${data.repo}/${data.id}`);
-                prList.unshift(data);
+        async function submitReviewAction() {
+            console.info('Review submitted');
+            const selected = document.querySelector('input[name="reviewAction"]:checked');
+            if (!selected) {
+                alert('Please select an action before submitting.');
+                return;
             }
 
-            // Re-render the list
-            renderPrList();
-        } catch (error) {
-            // If parsing fails, it might be a non-JSON message
-            console.warn('Received non-JSON message:', error);
+
+            try {
+                const reviewBody = document.getElementById("detail-review").value ||
+                    document.getElementById("detail-review").innerText;
+
+                await fetch('/api/pr/decision', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prNumber: currentPr,
+                        decision: selected.value, // 'Approve' or 'Request Changes'
+                        review: reviewBody
+                    })
+                });
+                alert(`Your decision (${selected.value}) has been submitted!`);
+            } catch (error) {
+                console.error('Failed to submit decision', error);
+                alert('Failed to submit your decision.');
+            }
         }
-    };
+        function submitChatComment() {
+            const comment = document.getElementById("chat-input").value.trim();
+            if (!comment) {
+                alert("Please enter a comment before submitting.");
+                return;
+            }
 
-    ws.onerror = (err) => {
-        console.error('WebSocket error', err);
-        isConnected = false;
-    };
+            // Placeholder logic for testing – replace with actual backend call if needed
+            const chatBox = document.getElementById("chat-response-box");
+            const simulatedResponse = `🤖 Response to: "${comment}"\n`;
 
-    ws.onclose = (event) => {
-        isConnected = false;
-        console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
+            chatBox.textContent += simulatedResponse;
+            chatBox.scrollTop = chatBox.scrollHeight;
 
-        // Attempt to reconnect if not closed normally and max attempts not reached
-        if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            const delay = reconnectDelay * reconnectAttempts; // Exponential backoff
-            console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts} of ${maxReconnectAttempts})`);
-
-            setTimeout(() => {
-                console.log('Reconnecting...');
-                setupWebSocket(); // Recursive call to reestablish connection
-            }, delay);
+            document.getElementById("chat-input").value = '';
         }
-    };
 
-    // Return the WebSocket instance for external use if needed
-    return ws;
-}
 
-console.info('Initial fetch PRs');
-fetchPrs();
-console.info('Setting up WebSocket');
-setupWebSocket();
+        function setupWebSocket() {
+            console.info('setupWebSocket() entered.');
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const ws = new WebSocket(`${protocol}://${window.location.host}/ws/prs`);
+
+            // Track connection state
+            let isConnected = false;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            const reconnectDelay = 3000; // 3 seconds base delay
+
+            ws.onopen = () => {
+                console.info('WebSocket connection established');
+                isConnected = true;
+                reconnectAttempts = 0;
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    // Try to parse as JSON
+                    const data = JSON.parse(event.data);
+                    // Check if this is a heartbeat message
+                    if (data.type === 'heartbeat') {
+                        console.debug(`Received heartbeat: ${data.id}`);
+                        // Send heartbeat response immediately
+                        if (isConnected) {
+                            const response = {
+                                type: 'heartbeat-response',
+                                id: data.id,
+                                timestamp: new Date().toISOString()
+                            };
+                            ws.send(JSON.stringify(response));
+                            console.debug(`Sent heartbeat response for ${data.id}`);
+                        }
+                        // Don't process heartbeats as PR updates
+                        return;
+                    }
+
+                    // Handle normal PR messages
+                    console.log("PR message received.");
+                    console.info('event data:', data);
+
+                    // Check if we already have this PR in our list
+                    const existingIndex = prList.findIndex(pr =>
+                        pr.repo === data.repo && pr.id === data.id
+                    );
+
+                    if (existingIndex !== -1) {
+                        // Update the existing item
+                        console.log(`Updating existing PR: ${data.repo}/${data.id}`);
+                        prList[existingIndex] = data;
+                    } else {
+                        // Add as a new item at the beginning of the list
+                        console.log(`Adding new PR: ${data.repo}/${data.id}`);
+                        prList.unshift(data);
+                    }
+
+                    // Re-render the list
+                    renderPrList();
+                } catch (error) {
+                    // If parsing fails, it might be a non-JSON message
+                    console.warn('Received non-JSON message:', error);
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error', err);
+                isConnected = false;
+            };
+
+            ws.onclose = (event) => {
+                isConnected = false;
+                console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
+
+                // Attempt to reconnect if not closed normally and max attempts not reached
+                if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = reconnectDelay * reconnectAttempts; // Exponential backoff
+                    console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts} of ${maxReconnectAttempts})`);
+
+                    setTimeout(() => {
+                        console.log('Reconnecting...');
+                        setupWebSocket(); // Recursive call to reestablish connection
+                    }, delay);
+                }
+            };
+
+            // Return the WebSocket instance for external use if needed
+            return ws;
+        }
+
+        console.info('Initial fetch PRs');
+        fetchPrs();
+        console.info('Setting up WebSocket');
+        setupWebSocket();
     </script>
 </body>
 </html>
