@@ -18,6 +18,8 @@
 <body class="bg-light">
     <div class="container py-4">
         <h1 class="mb-4">Open Pull Requests</h1>
+        <label>User ID: <input id="userId" value="user123"></label><br>
+        <label>Session ID: <input id="sessionId" value="session456"></label><br>
 
         <!-- PR List View -->
         <div id="pr-list" class="list-group">
@@ -51,7 +53,7 @@
                     <!-- Chat Text Area and Submit Button -->
                     <div class="chat-container">
                         <textarea id="chat-input" placeholder="Enter your comment..."></textarea>
-                        <button class="chat-submit-btn" onclick="submitChatComment()">
+                        <button class="chat-submit-btn" onclick="sendChatMessage()">
                             &#10148;
                         </button>
                     </div>
@@ -150,6 +152,8 @@
 
             // Set the Review HTML content
             document.getElementById('detail-review').innerHTML = html;
+            console.info('Connecting to chat.');
+            connectChat();
         }
 
         function showListView() {
@@ -212,23 +216,6 @@
                 alert('Failed to submit your decision.');
             }
         }
-        function submitChatComment() {
-            const comment = document.getElementById("chat-input").value.trim();
-            if (!comment) {
-                alert("Please enter a comment before submitting.");
-                return;
-            }
-
-            // Placeholder logic for testing – replace with actual backend call if needed
-            const chatBox = document.getElementById("chat-response-box");
-            const simulatedResponse = `🤖 Response to: "${comment}"\n`;
-
-            chatBox.textContent += simulatedResponse;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            document.getElementById("chat-input").value = '';
-        }
-
 
         function setupWebSocket() {
             console.info('setupWebSocket() entered.');
@@ -325,6 +312,69 @@
         fetchPrs();
         console.info('Setting up WebSocket');
         setupWebSocket();
+        chatSocket = {};
+
+        function connectChat() {
+            if (chatSocket && (chatSocket.readyState === WebSocket.OPEN || chatSocket.readyState === WebSocket.CONNECTING)) {
+                console.log("Chat WebSocket is already connecting or connected.");
+                return;
+            }
+            const userId = document.getElementById("userId").value;
+            const sessionId = document.getElementById("sessionId").value;
+            //const url = `ws://localhost:8080/ws/chat/${userId}/${sessionId}`;
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const url = `${protocol}//notifications.codeominous.com/ws/chat/${userId}/${sessionId}`;
+
+            chatSocket = new WebSocket(url);
+
+            chatSocket.onmessage = function (event) {
+                const msg = event.data;
+                document.getElementById("chat-response-box").innerHTML += `<div class='bot'><strong>Claude:</strong> ${msg}</div>`;
+            };
+
+            chatSocket.onopen = function () {
+                document.getElementById("chat-response-box").innerHTML += "<div><em>Connected to chat server.</em></div>";
+            };
+
+            chatSocket.onclose = function () {
+                document.getElementById("chat-response-box").innerHTML += "<div><em>Disconnected.</em></div>";
+            };
+        }
+
+        function sendChatMessage() {
+            if (chatSocket && (chatSocket.readyState != WebSocket.OPEN)) {
+                console.log("Chat WebSocket is not connected.");
+                return;
+            }
+            const comment = document.getElementById("chat-input").value.trim();
+            if (!comment) {
+                alert("Please enter a comment before submitting.");
+                return;
+            }
+            connectChat();
+            const msg = comment.value;
+            comment.value = "";
+            chatSocket.send(msg);
+        }
+
+        function submitChatCommentTest() {
+            const comment = document.getElementById("chat-input").value.trim();
+            if (!comment) {
+                alert("Please enter a comment before submitting.");
+                return;
+            }
+
+            // Placeholder logic for testing – replace with actual backend call if needed
+            const chatBox = document.getElementById("chat-response-box");
+            const simulatedResponse = `🤖 Response to: "${comment}"\n`;
+
+            chatBox.textContent += simulatedResponse;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            document.getElementById("chat-input").value = '';
+        }
+
+
     </script>
 </body>
 </html>
