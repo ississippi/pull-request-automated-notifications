@@ -85,6 +85,7 @@
     <script>
         let prList = [];
         let currentPr = null;
+        let currentRepo = null;
 
         async function fetchPrs() {
             const response = await fetch('/api/pr/openprs');
@@ -113,6 +114,7 @@
 
         async function showDetailView(prId, repo) {
             currentPr = prId;
+            currentRepo = repo;
 
             // Fetch PR metadata
             const detailsResp = await fetch(`/api/pr/details?id=${prId}&repo=${repo}`);
@@ -352,9 +354,20 @@
                 return;
             }
             connectChat();
-            const msg = comment.value;
-            comment.value = "";
-            chatSocket.send(msg);
+
+            const chatRequest = {
+                "user_id": document.getElementById("userId").value,
+                "session_id": document.getElementById("sessionId").value,
+                "message": comment.value,
+                "repo": currentRepo,
+                "pr_number": currentPr
+            }
+            msg_str = JSON.stringify(chatRequest);
+            console.info("Sending request to pr_chat.");
+            chatSocket.send(msg_str)
+            //const msg = comment.value;
+            //comment.value = "";
+            //chatSocket.send(msg);
         }
 
         function submitChatCommentTest() {
